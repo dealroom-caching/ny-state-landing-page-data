@@ -13,83 +13,121 @@ const SHEET_NAMES = [
 ];
 
 /**
- * Fetches sheet data using the Google Visualization API (JSON export path)
- * Optimized to exclude empty rows and columns.
+ * Parse CSV text into array of objects
+ * Handles quoted fields with commas and newlines
+ */
+function parseCSV(csvText: string): Record<string, string>[] {
+  const lines: string[] = [];
+  let currentLine = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    
+    if (char === '"') {
+      // Check for escaped quote
+      if (inQuotes && csvText[i + 1] === '"') {
+        currentLine += '"';
+        i++; // Skip next quote
+      } else {
+        inQuotes = !inQuotes;
+        currentLine += char;
+      }
+    } else if (char === '\n' && !inQuotes) {
+      if (currentLine.trim()) {
+        lines.push(currentLine);
+      }
+      currentLine = '';
+    } else if (char === '\r' && !inQuotes) {
+      // Skip carriage returns
+    } else {
+      currentLine += char;
+    }
+  }
+  
+  // Don't forget last line
+  if (currentLine.trim()) {
+    lines.push(currentLine);
+  }
+  
+  if (lines.length < 2) return [];
+  
+  // Parse header row
+  const headers = parseCSVRow(lines[0]);
+  
+  // Parse data rows
+  const results: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVRow(lines[i]);
+    
+    // Skip empty rows (all values empty)
+    const hasData = values.some(v => v.trim() !== '');
+    if (!hasData) continue;
+    
+    const obj: Record<string, string> = {};
+    let rowHasData = false;
+    
+    for (let j = 0; j < headers.length; j++) {
+      const header = headers[j]?.trim();
+      const value = values[j]?.trim() ?? '';
+      
+      if (header && value !== '') {
+        obj[header] = value;
+        rowHasData = true;
+      }
+    }
+    
+    if (rowHasData) {
+      results.push(obj);
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Parse a single CSV row into array of values
+ */
+function parseCSVRow(row: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+    
+    if (char === '"') {
+      if (inQuotes && row[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      values.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  values.push(current);
+  return values;
+}
+
+/**
+ * Fetches sheet data using CSV export (cleaner, no trailing empty rows)
  */
 async function fetchSheetData(sheetName: string) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch sheet "${sheetName}": ${response.statusText}`);
   }
   
-  const text = await response.text();
-  
-  const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/);
-  if (!jsonMatch) {
-    throw new Error(`Failed to parse JSON response for sheet "${sheetName}"`);
-  }
-  
-  const data = JSON.parse(jsonMatch[1]);
-  const table = data.table;
-  
-  // 1. Identify valid columns (columns that have a header label)
-  const validCols = table.cols
-    .map((col: any, i: number) => ({ label: col.label?.trim(), index: i }))
-    .filter((col: any) => col.label !== '');
-
-  if (validCols.length === 0) return [];
-
-  const results: any[] = [];
-
-  // 2. Process rows and filter aggressively
-  // Strategy: Only include rows where the FIRST column has data (primary identifier)
-  // Stop processing after 10 consecutive empty first columns (trailing empty rows)
-  let consecutiveEmpty = 0;
-  const MAX_CONSECUTIVE_EMPTY = 10;
-
-  for (const row of table.rows) {
-    if (!row.c || validCols.length === 0) continue;
-
-    // Check if first column has data - if not, skip entire row
-    const firstCol = validCols[0];
-    const firstCell = row.c[firstCol.index];
-    const firstValue = firstCell?.v !== null && firstCell?.v !== undefined 
-      ? firstCell.v 
-      : (firstCell?.f ?? null);
-    
-    // Skip rows where the first column is empty (these are trailing empty rows)
-    if (firstValue === '' || firstValue === null || firstValue === undefined) {
-      consecutiveEmpty++;
-      // Stop processing if we hit too many consecutive empty rows
-      if (consecutiveEmpty >= MAX_CONSECUTIVE_EMPTY) {
-        break;
-      }
-      continue;
-    }
-
-    // Reset counter when we find a valid row
-    consecutiveEmpty = 0;
-
-    // Build object with only non-empty values
-    const obj: any = {};
-    for (const col of validCols) {
-      const cell = row.c[col.index];
-      const value = cell?.v !== null && cell?.v !== undefined 
-        ? cell.v 
-        : (cell?.f ?? null);
-      
-      // Only include non-empty values
-      if (value !== '' && value !== null && value !== undefined) {
-        obj[col.label] = value;
-      }
-    }
-
-    results.push(obj);
-  }
-  
-  return results;
+  const csvText = await response.text();
+  return parseCSV(csvText);
 }
 
 async function main() {
@@ -98,7 +136,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('📥 Fetching Google Sheets data (Optimized)...');
+  console.log('📥 Fetching Google Sheets data via CSV export...');
   
   try {
     const sheetsData = await Promise.all(
@@ -141,7 +179,6 @@ async function main() {
     }
 
     const outputPath = path.join(publicDir, 'report-data.json');
-    // Removed indentation to minimize file size
     writeFileSync(outputPath, JSON.stringify(output));
     
     console.log('✅ Cache complete!');
