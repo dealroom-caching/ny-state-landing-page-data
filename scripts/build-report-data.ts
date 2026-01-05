@@ -12,9 +12,19 @@ const SHEET_NAMES = [
   'Regional Comparison',
 ];
 
+// Primary key column for each sheet (used to filter empty rows)
+const PRIMARY_KEY_COLUMNS: Record<string, string> = {
+  'Locations Metadata': 'location_database_name',
+  'Yearly Funding Data': 'location_database_name',
+  'Quarterly Funding Data': 'location_database_name',
+  'Yearly Enterprise Value': 'location_database_name',
+  'Top Industries, Tags, Rounds': 'location_database_name',
+  'Top Rounds': 'location_database_name',
+  'Regional Comparison': 'location_database_name',
+};
+
 /**
  * Parse CSV text into array of objects
- * Handles quoted fields with commas and newlines
  */
 function parseCSV(csvText: string): Record<string, string>[] {
   const lines: string[] = [];
@@ -25,10 +35,9 @@ function parseCSV(csvText: string): Record<string, string>[] {
     const char = csvText[i];
     
     if (char === '"') {
-      // Check for escaped quote
       if (inQuotes && csvText[i + 1] === '"') {
         currentLine += '"';
-        i++; // Skip next quote
+        i++;
       } else {
         inQuotes = !inQuotes;
         currentLine += char;
@@ -45,24 +54,17 @@ function parseCSV(csvText: string): Record<string, string>[] {
     }
   }
   
-  // Don't forget last line
   if (currentLine.trim()) {
     lines.push(currentLine);
   }
   
   if (lines.length < 2) return [];
   
-  // Parse header row
   const headers = parseCSVRow(lines[0]);
   
-  // Parse data rows
   const results: Record<string, string>[] = [];
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVRow(lines[i]);
-    
-    // Skip empty rows (all values empty)
-    const hasData = values.some(v => v.trim() !== '');
-    if (!hasData) continue;
     
     const obj: Record<string, string> = {};
     let rowHasData = false;
@@ -85,9 +87,6 @@ function parseCSV(csvText: string): Record<string, string>[] {
   return results;
 }
 
-/**
- * Parse a single CSV row into array of values
- */
 function parseCSVRow(row: string): string[] {
   const values: string[] = [];
   let current = '';
@@ -116,9 +115,9 @@ function parseCSVRow(row: string): string[] {
 }
 
 /**
- * Fetches sheet data using CSV export (cleaner, no trailing empty rows)
+ * Fetches sheet data using CSV export
  */
-async function fetchSheetData(sheetName: string) {
+async function fetchSheetData(sheetName: string): Promise<Record<string, string>[]> {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   
   const response = await fetch(url);
@@ -127,7 +126,25 @@ async function fetchSheetData(sheetName: string) {
   }
   
   const csvText = await response.text();
-  return parseCSV(csvText);
+  const allRows = parseCSV(csvText);
+  
+  // Get the primary key column for this sheet
+  const primaryKeyCol = PRIMARY_KEY_COLUMNS[sheetName];
+  
+  // Debug: show first row's keys
+  if (allRows.length > 0) {
+    console.log(`   [${sheetName}] Columns: ${Object.keys(allRows[0]).join(', ')}`);
+  }
+  
+  // Filter: only keep rows where the primary key column has a value
+  const filteredRows = allRows.filter(row => {
+    const primaryValue = row[primaryKeyCol];
+    return primaryValue && primaryValue.trim() !== '';
+  });
+  
+  console.log(`   [${sheetName}] Raw: ${allRows.length} rows -> Filtered: ${filteredRows.length} rows`);
+  
+  return filteredRows;
 }
 
 async function main() {
@@ -136,7 +153,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('📥 Fetching Google Sheets data via CSV export...');
+  console.log('📥 Fetching Google Sheets data...');
   
   try {
     const sheetsData = await Promise.all(
@@ -181,11 +198,10 @@ async function main() {
     const outputPath = path.join(publicDir, 'report-data.json');
     writeFileSync(outputPath, JSON.stringify(output));
     
+    console.log('');
     console.log('✅ Cache complete!');
-    console.log(`   Locations: ${sheetsData[0].length}`);
     console.log(`   Reporting: ${reportingQuarter}`);
     
-    // Log size breakdown by sheet
     const sheetSizes = SHEET_NAMES.map((name, i) => ({
       name,
       rows: sheetsData[i].length,
