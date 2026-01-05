@@ -4,7 +4,7 @@ This repository contains the data caching pipeline for the Quarterly Ecosystem R
 
 ## Overview
 
-The pipeline fetches raw data from Google Sheets and stores it as a static JSON file in the `public/` directory. This JSON is then consumed by the web application.
+The pipeline fetches raw data from **public** Google Sheets and stores it as a static JSON file in the `public/` directory. This JSON is then consumed by the web application.
 
 ## Repository Structure
 
@@ -20,8 +20,7 @@ The pipeline fetches raw data from Google Sheets and stores it as a static JSON 
    ```
 
 2. Set up environment variables:
-   - `GOOGLE_SERVICE_ACCOUNT_KEY`: Base64-encoded Google Service Account JSON key.
-   - `GOOGLE_SHEET_ID`: The ID of the source Google Sheet.
+   - `GOOGLE_SHEET_ID`: The ID of the source Google Sheet. (Must be shared as "Anyone with the link can view")
 
 3. Run the build script locally:
    ```bash
@@ -39,4 +38,3 @@ The pipeline fetches raw data from Google Sheets and stores it as a static JSON 
   - Top Industries and Tags
   - Top Rounds
   - Regional Comparison
-
