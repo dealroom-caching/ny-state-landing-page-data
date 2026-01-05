@@ -43,32 +43,50 @@ async function fetchSheetData(sheetName: string) {
 
   const results: any[] = [];
 
-  // 2. Process rows and filter out empty ones
-  // Only include keys with actual values (exclude empty strings, null, undefined)
+  // 2. Process rows and filter aggressively
+  // Strategy: Only include rows where the FIRST column has data (primary identifier)
+  // Stop processing after 10 consecutive empty first columns (trailing empty rows)
+  let consecutiveEmpty = 0;
+  const MAX_CONSECUTIVE_EMPTY = 10;
+
   for (const row of table.rows) {
-    if (!row.c) continue;
+    if (!row.c || validCols.length === 0) continue;
 
+    // Check if first column has data - if not, skip entire row
+    const firstCol = validCols[0];
+    const firstCell = row.c[firstCol.index];
+    const firstValue = firstCell?.v !== null && firstCell?.v !== undefined 
+      ? firstCell.v 
+      : (firstCell?.f ?? null);
+    
+    // Skip rows where the first column is empty (these are trailing empty rows)
+    if (firstValue === '' || firstValue === null || firstValue === undefined) {
+      consecutiveEmpty++;
+      // Stop processing if we hit too many consecutive empty rows
+      if (consecutiveEmpty >= MAX_CONSECUTIVE_EMPTY) {
+        break;
+      }
+      continue;
+    }
+
+    // Reset counter when we find a valid row
+    consecutiveEmpty = 0;
+
+    // Build object with only non-empty values
     const obj: any = {};
-    let hasData = false;
-
     for (const col of validCols) {
       const cell = row.c[col.index];
-      // Prefer raw value (v), fallback to formatted value (f) for errors/#N/A
       const value = cell?.v !== null && cell?.v !== undefined 
         ? cell.v 
         : (cell?.f ?? null);
       
-      // Only include non-empty values in the object
+      // Only include non-empty values
       if (value !== '' && value !== null && value !== undefined) {
         obj[col.label] = value;
-        hasData = true;
       }
     }
 
-    // Only add row if it contains at least one non-empty cell
-    if (hasData) {
-      results.push(obj);
-    }
+    results.push(obj);
   }
   
   return results;
