@@ -44,6 +44,7 @@ async function fetchSheetData(sheetName: string) {
   const results: any[] = [];
 
   // 2. Process rows and filter out empty ones
+  // Only include keys with actual values (exclude empty strings, null, undefined)
   for (const row of table.rows) {
     if (!row.c) continue;
 
@@ -52,16 +53,19 @@ async function fetchSheetData(sheetName: string) {
 
     for (const col of validCols) {
       const cell = row.c[col.index];
-      const value = cell?.v ?? '';
+      // Prefer raw value (v), fallback to formatted value (f) for errors/#N/A
+      const value = cell?.v !== null && cell?.v !== undefined 
+        ? cell.v 
+        : (cell?.f ?? null);
       
-      // Check if value is truly empty (ignoring empty strings)
+      // Only include non-empty values in the object
       if (value !== '' && value !== null && value !== undefined) {
+        obj[col.label] = value;
         hasData = true;
       }
-      obj[col.label] = value;
     }
 
-    // Only add row if it contains at least one non-empty cell in a valid column
+    // Only add row if it contains at least one non-empty cell
     if (hasData) {
       results.push(obj);
     }
@@ -125,7 +129,19 @@ async function main() {
     console.log('✅ Cache complete!');
     console.log(`   Locations: ${sheetsData[0].length}`);
     console.log(`   Reporting: ${reportingQuarter}`);
-    console.log(`   Size: ${(JSON.stringify(output).length / 1024 / 1024).toFixed(2)} MB`);
+    
+    // Log size breakdown by sheet
+    const sheetSizes = SHEET_NAMES.map((name, i) => ({
+      name,
+      rows: sheetsData[i].length,
+      size: JSON.stringify(sheetsData[i]).length,
+    }));
+    sheetSizes.forEach(s => {
+      console.log(`   ${s.name}: ${s.rows} rows, ${(s.size / 1024).toFixed(1)} KB`);
+    });
+    
+    const totalSize = JSON.stringify(output).length;
+    console.log(`   Total size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
   } catch (err) {
     console.error('❌ Cache failed:', err);
     process.exit(1);
