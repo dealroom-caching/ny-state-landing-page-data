@@ -13,6 +13,7 @@ const SHEET_NAMES = [
 ];
 
 // Primary key column for each sheet (used to filter empty rows)
+// All sheets use location_database_name as the primary identifier
 const PRIMARY_KEY_COLUMNS: Record<string, string> = {
   'Locations Metadata': 'location_database_name',
   'Yearly Funding Data': 'location_database_name',
