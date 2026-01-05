@@ -4,15 +4,14 @@ import path from 'path';
 const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
 
 // Sheet configurations with GID (more reliable than names)
-// Find GID in URL when you click each sheet tab: #gid=XXXXXXX
 const SHEET_CONFIGS = [
-  { key: 'locations', name: 'Locations Metadata', gid: '' },           // Fill in GID
-  { key: 'yearly_funding', name: 'Yearly Funding Data', gid: '' },     // Fill in GID
-  { key: 'quarterly_funding', name: 'Quarterly Funding Data', gid: '' }, // Fill in GID
-  { key: 'yearly_ev', name: 'Yearly Enterprise Value', gid: '' },      // Fill in GID
-  { key: 'top_industries_tags', name: 'Top Industries, Tags, Rounds', gid: '' }, // Fill in GID
-  { key: 'top_rounds', name: 'Top Rounds', gid: '' },                  // Fill in GID
-  { key: 'regional_comparison', name: 'Regional Comparison', gid: '' }, // Fill in GID
+  { key: 'locations', name: 'Locations Metadata', gid: '1263377552' },
+  { key: 'yearly_funding', name: 'Yearly Funding Data', gid: '1426194263' },
+  { key: 'quarterly_funding', name: 'Quarterly Funding Data', gid: '883461842' },
+  { key: 'yearly_ev', name: 'Yearly Enterprise Value', gid: '1785838256' },
+  { key: 'top_industries_tags', name: 'Top Industries and Tags', gid: '1075248480' },
+  { key: 'top_rounds', name: 'Top Rounds', gid: '279039385' },
+  { key: 'regional_comparison', name: 'Regional Comparison', gid: '1503787806' },
 ];
 
 // Primary key column for filtering empty rows
