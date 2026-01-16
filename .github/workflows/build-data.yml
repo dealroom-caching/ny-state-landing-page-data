@@ -27,8 +27,6 @@ jobs:
       - run: npm ci
 
       - name: Fetch and cache Google Sheets data
-        env:
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: npm run build
 
       - name: Validate JSON

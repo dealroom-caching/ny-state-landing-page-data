@@ -1,20 +1,18 @@
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
+const SHEET_ID = '1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw';
 
 // Sheet configurations with GID (more reliable than names)
 const SHEET_CONFIGS = [
-  { key: 'locations', name: 'Locations Metadata', gid: '1263377552' },
-  { key: 'yearly_funding', name: 'Yearly Funding Data', gid: '1426194263' },
-  { key: 'quarterly_funding', name: 'Quarterly Funding Data', gid: '883461842' },
-  { key: 'yearly_ev', name: 'Yearly Enterprise Value', gid: '1785838256' },
-  { key: 'top_industries_tags', name: 'Top Industries and Tags', gid: '1075248480' },
-  { key: 'top_rounds', name: 'Top Rounds', gid: '279039385' },
+  { key: 'output', name: 'output', gid: '0' },
+  { key: 'ebitda_timeseries', name: 'EBITDA Timeseries', gid: '845629928' },
+  { key: 'revenue_timeseries', name: 'Revenue Timeseries', gid: '755104021' },
+  { key: 'employee_timeseries', name: 'Employee timeseries', gid: '12460386' },
+  { key: 'ev_timeseries', name: 'EV timeseries', gid: '790875073' },
+  { key: 'mafia', name: 'Mafia', gid: '1431246161' },
+  { key: 'founders', name: 'founders', gid: '275207722' },
 ];
-
-// Primary key column for filtering empty rows
-const PRIMARY_KEY = 'location_database_name';
 
 /**
  * Parse CSV text into array of objects
@@ -131,22 +129,12 @@ async function fetchSheetData(config: typeof SHEET_CONFIGS[0]): Promise<Record<s
     console.log(`   [${config.name}] Columns: ${Object.keys(allRows[0]).join(', ')}`);
   }
   
-  // Filter: only keep rows where primary key has a value
-  const filteredRows = allRows.filter(row => {
-    const primaryValue = row[PRIMARY_KEY];
-    return primaryValue && primaryValue.trim() !== '';
-  });
+  console.log(`   [${config.name}] ${allRows.length} rows`);
   
-  console.log(`   [${config.name}] Raw: ${allRows.length} -> Filtered: ${filteredRows.length} rows`);
-  
-  return filteredRows;
+  return allRows;
 }
 
 async function main() {
-  if (!SHEET_ID) {
-    console.error('❌ GOOGLE_SHEET_ID environment variable is not set');
-    process.exit(1);
-  }
 
   console.log('📥 Fetching Google Sheets data...');
   console.log(`   Sheet ID: ${SHEET_ID}`);
@@ -179,11 +167,9 @@ async function main() {
         schema_version: '2.0',
       },
       sheets: sheetsData,
-      config: {
-        map_enabled: false,
-        share_preview_enabled: true,
-        default_location_id: 'london',
-      },
+    config: {
+      schema_version: '1.0',
+    },
     };
     
     const publicDir = path.join(process.cwd(), 'public');
@@ -196,7 +182,6 @@ async function main() {
     
     console.log('');
     console.log('✅ Cache complete!');
-    console.log(`   Reporting: ${reportingQuarter}`);
     
     let totalSize = 0;
     for (const config of SHEET_CONFIGS) {

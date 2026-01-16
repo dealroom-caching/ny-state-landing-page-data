@@ -1,13 +1,11 @@
-# Quarterly Report Data Pipeline
+# NY State Data Pipeline
 
-**Data Cache Specification (v2.0 - Simplified)**  
-*Last updated: 2026-01-05*
+**Data Cache Specification (v2.0)**  
+*Last updated: 2026-01-16*
 
-This document specifies the **data caching pipeline** that fetches Google Sheets data and stores it as a JSON file consumed by the Quarterly Ecosystem Reporter webapp. This pipeline runs in a **separate GitHub repository** from the webapp.
+This document specifies the **data caching pipeline** that fetches Google Sheets data and stores it as a JSON file consumed by downstream applications. This pipeline runs in a **separate GitHub repository** from the webapp.
 
-> **Philosophy:** This is a **dumb cache**. All business logic (filtering, projections, aggregations) happens in the webapp. The pipeline just fetches and stores raw sheet data.
-
-> **Related:** See `quarterly-ecosystem-reporter-spec-revised.md` for the webapp specification.
+> **Philosophy:** This is a **dumb cache**. All business logic (filtering, projections, aggregations) happens in the consuming application. The pipeline just fetches and stores raw sheet data.
 
 ---
 
@@ -52,9 +50,9 @@ This document specifies the **data caching pipeline** that fetches Google Sheets
 ## Repository structure
 
 ```
-quarterly-report-data/
+ny-state-data/
 ├── public/
-│   └── report-data.json        # Single cached JSON (~2-5 MB, gzipped: ~300-600 KB)
+│   └── report-data.json        # Single cached JSON (~5 MB, gzipped: ~500-800 KB)
 ├── scripts/
 │   └── build-report-data.ts    # Simple fetch & cache script
 ├── .github/
@@ -70,21 +68,21 @@ quarterly-report-data/
 ## Google Sheets source
 
 **Google Sheets URL:**  
-https://docs.google.com/spreadsheets/d/120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04/edit
+https://docs.google.com/spreadsheets/d/1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw/edit
 
-**Sheet ID:** `120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04`
+**Sheet ID:** `1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw`
 
 ### 7 Sheets to fetch:
 
-1. **Locations Metadata** — Location info, coordinates, descriptions
-2. **Yearly Funding Data** — Annual VC funding totals
-3. **Quarterly Funding Data** — Quarterly VC funding by stage category
-4. **Yearly Enterprise Value** — Annual enterprise value totals
-5. **Top Industries and Tags** — Top industries and tags by location
-6. **Top Rounds** — Top funding rounds by location
-7. **Regional Comparison** — Regional rankings
-
-> **See existing types:** All sheet column schemas are already defined in `src/lib/data/types.ts` in the webapp (e.g., `RawLocationRow`, `RawYearlyFundingRow`, etc.)
+| Key | Sheet Name | GID | Description |
+|-----|------------|-----|-------------|
+| `output` | output | 0 | Main company output data |
+| `ebitda_timeseries` | EBITDA Timeseries | 845629928 | EBITDA data over time |
+| `revenue_timeseries` | Revenue Timeseries | 755104021 | Revenue data over time |
+| `employee_timeseries` | Employee timeseries | 12460386 | Employee count over time |
+| `ev_timeseries` | EV timeseries | 790875073 | Enterprise value over time |
+| `mafia` | Mafia | 1431246161 | Company alumni/mafia data |
+| `founders` | founders | 275207722 | Founder information |
 
 ---
 
@@ -99,81 +97,68 @@ interface ReportData {
   meta: {
     generated_at: string;              // ISO timestamp
     source_sheet_id: string;           // Google Sheet ID
-    reporting_quarter: string;         // e.g. "2025Q3"
-    reporting_year: number;            // e.g. 2025
-    reporting_quarter_number: 1|2|3|4; // e.g. 3
+    reporting_quarter: string;         // e.g. "2026Q1"
+    reporting_year: number;            // e.g. 2026
+    reporting_quarter_number: 1|2|3|4; // e.g. 1
     schema_version: string;            // "2.0"
   };
 
   // Raw sheet data - no transformations
   // Column names match Google Sheets exactly
   sheets: {
-    locations: RawLocationRow[];              // Sheet 1
-    yearly_funding: RawYearlyFundingRow[];    // Sheet 2
-    quarterly_funding: RawQuarterlyFundingRow[]; // Sheet 3
-    yearly_ev: RawYearlyEvRow[];              // Sheet 4
-    top_industries_tags: RawTopIndustriesTagsRow[]; // Sheet 5
-    top_rounds: RawTopRoundsRow[];            // Sheet 6
-    regional_comparison: RawRegionalComparisonRow[]; // Sheet 7
+    output: Record<string, string>[];             // Main company data
+    ebitda_timeseries: Record<string, string>[];  // EBITDA over time
+    revenue_timeseries: Record<string, string>[]; // Revenue over time
+    employee_timeseries: Record<string, string>[]; // Employees over time
+    ev_timeseries: Record<string, string>[];      // Enterprise value over time
+    mafia: Record<string, string>[];              // Alumni/mafia data
+    founders: Record<string, string>[];           // Founder info
   };
 
-  // Simple config (can be set manually or from env)
   config: {
-    map_enabled: boolean;
-    share_preview_enabled: boolean;
-    default_location_id: string;
+    schema_version: string;
   };
 }
 ```
-
-> **Note:** All `Raw*Row` types are already defined in the webapp at `src/lib/data/types.ts`
 
 **Example structure:**
 ```json
 {
   "meta": {
-    "generated_at": "2025-01-05T12:00:00.000Z",
-    "source_sheet_id": "120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04",
-    "reporting_quarter": "2025Q3",
-    "reporting_year": 2025,
-    "reporting_quarter_number": 3,
+    "generated_at": "2026-01-16T12:00:00.000Z",
+    "source_sheet_id": "1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw",
+    "reporting_quarter": "2026Q1",
+    "reporting_year": 2026,
+    "reporting_quarter_number": 1,
     "schema_version": "2.0"
   },
   "sheets": {
-    "locations": [
+    "output": [
       {
-        "location_database_name": "london",
-        "location_display_name": "London",
-        "display_location_type": "Metro",
-        "location_type": "City",
-        "lat": 51.5074,
-        "long": -0.1278,
-        "description": "London is Europe's leading tech hub...",
-        "flag_code": "GB",
-        "country_parent": ""
+        "company_id": "...",
+        "company_name": "...",
+        "company_url": "...",
+        ...
       }
     ],
-    "yearly_funding": [...],
-    "quarterly_funding": [...],
-    "yearly_ev": [...],
-    "top_industries_tags": [...],
-    "top_rounds": [...],
-    "regional_comparison": [...]
+    "ebitda_timeseries": [...],
+    "revenue_timeseries": [...],
+    "employee_timeseries": [...],
+    "ev_timeseries": [...],
+    "mafia": [...],
+    "founders": [...]
   },
   "config": {
-    "map_enabled": false,
-    "share_preview_enabled": true,
-    "default_location_id": "london"
+    "schema_version": "1.0"
   }
 }
 ```
 
-**What's NOT included (webapp handles these):**
-- ❌ Quarter parsing/filtering
-- ❌ Stage aggregations  
-- ❌ Annual projections
-- ❌ Comparison list building
-- ❌ Region key normalization
+**What's NOT included (consuming app handles these):**
+- ❌ Data filtering
+- ❌ Aggregations  
+- ❌ Projections
+- ❌ Business logic
 
 ---
 
@@ -211,12 +196,7 @@ jobs:
       - run: npm ci
 
       - name: Fetch and cache Google Sheets data
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        run: |
-          echo "$GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > /tmp/service-account.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/service-account.json npx tsx scripts/build-report-data.ts
+        run: npx tsx scripts/build-report-data.ts
 
       - name: Validate JSON
         run: |
@@ -233,114 +213,62 @@ jobs:
           git push
 ```
 
+> **Note:** The Google Sheet must be shared as "Anyone with the link can view" for this to work without authentication.
+
 ---
 
 ## Build script implementation
 
 ### `scripts/build-report-data.ts`
 
-Simple script that fetches all 7 sheets and caches them as JSON:
+Simple script that fetches all sheets via the CSV export endpoint (no authentication required for public sheets):
 
 ```typescript
-import { google } from 'googleapis';
-import { writeFileSync } from 'fs';
+import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
-const SHEET_NAMES = [
-  'Locations Metadata',
-  'Yearly Funding Data',
-  'Quarterly Funding Data',
-  'Yearly Enterprise Value',
-  'Top Industries, Tags, Rounds',
-  'Top Rounds',
-  'Regional Comparison',
+const SHEET_ID = process.env.GOOGLE_SHEET_ID || '1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw';
+
+// Sheet configurations with GID
+const SHEET_CONFIGS = [
+  { key: 'output', name: 'output', gid: '0' },
+  { key: 'ebitda_timeseries', name: 'EBITDA Timeseries', gid: '845629928' },
+  { key: 'revenue_timeseries', name: 'Revenue Timeseries', gid: '755104021' },
+  { key: 'employee_timeseries', name: 'Employee timeseries', gid: '12460386' },
+  { key: 'ev_timeseries', name: 'EV timeseries', gid: '790875073' },
+  { key: 'mafia', name: 'Mafia', gid: '1431246161' },
+  { key: 'founders', name: 'founders', gid: '275207722' },
 ];
 
-async function main() {
-  console.log('📥 Fetching Google Sheets data...');
-  
-  // Setup Google Sheets API
-  const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  
-  // Fetch all sheets in parallel
-  const responses = await Promise.all(
-    SHEET_NAMES.map(name =>
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: `'${name}'`,
-      })
-    )
-  );
-  
-  // Convert each sheet to array of objects
-  const sheetsData = responses.map((res, i) => {
-    const rows = res.data.values || [];
-    if (rows.length < 2) {
-      console.warn(`⚠️  Sheet "${SHEET_NAMES[i]}" is empty`);
-      return [];
-    }
-    
-    const [headers, ...dataRows] = rows;
-    return dataRows.map(row =>
-      Object.fromEntries(
-        headers.map((header, j) => [header, row[j] ?? ''])
-      )
-    );
-  });
-  
-  // Calculate current reporting quarter
-  const now = new Date();
-  const year = now.getFullYear();
-  const quarterNumber = Math.ceil((now.getMonth() + 1) / 3) as 1|2|3|4;
-  const reportingQuarter = `${year}Q${quarterNumber}`;
-  
-  // Build output JSON
-  const output = {
-    meta: {
-      generated_at: now.toISOString(),
-      source_sheet_id: SHEET_ID,
-      reporting_quarter: reportingQuarter,
-      reporting_year: year,
-      reporting_quarter_number: quarterNumber,
-      schema_version: '2.0',
-    },
-    sheets: {
-      locations: sheetsData[0],
-      yearly_funding: sheetsData[1],
-      quarterly_funding: sheetsData[2],
-      yearly_ev: sheetsData[3],
-      top_industries_tags: sheetsData[4],
-      top_rounds: sheetsData[5],
-      regional_comparison: sheetsData[6],
-    },
-    config: {
-      map_enabled: false,
-      share_preview_enabled: true,
-      default_location_id: 'london',
-    },
-  };
-  
-  // Write to public/report-data.json
-  const outputPath = path.join(process.cwd(), 'public', 'report-data.json');
-  writeFileSync(outputPath, JSON.stringify(output));
-  
-  console.log('✅ Cache complete!');
-  console.log(`   Locations: ${sheetsData[0].length}`);
-  console.log(`   Reporting: ${reportingQuarter}`);
-  console.log(`   Size: ${(JSON.stringify(output).length / 1024 / 1024).toFixed(2)} MB`);
+// ... CSV parsing functions ...
+
+async function fetchSheetData(config) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${config.gid}`;
+  const response = await fetch(url);
+  const csvText = await response.text();
+  return parseCSV(csvText);
 }
 
-main().catch((err) => {
-  console.error('❌ Cache failed:', err);
-  process.exit(1);
-});
+async function main() {
+  const sheetsData = {};
+  for (const config of SHEET_CONFIGS) {
+    sheetsData[config.key] = await fetchSheetData(config);
+  }
+  
+  const output = {
+    meta: { /* ... */ },
+    sheets: sheetsData,
+    config: { schema_version: '1.0' },
+  };
+  
+  writeFileSync('public/report-data.json', JSON.stringify(output));
+}
 ```
 
-**That's it!** ~70 lines instead of 500+. No transformations, no complex business logic.
+**Key features:**
+- Uses CSV export endpoint (no Google API auth required)
+- Fetches sheets by GID (more reliable than sheet names)
+- Includes CSV parsing for proper handling of quoted fields
 
 ---
 
@@ -350,15 +278,12 @@ main().catch((err) => {
 
 ```json
 {
-  "name": "quarterly-report-data",
+  "name": "ny-state-data",
   "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsx scripts/build-report-data.ts"
-  },
-  "dependencies": {
-    "googleapis": "^130.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -384,26 +309,16 @@ main().catch((err) => {
 }
 ```
 
-### GitHub repository secrets
+### Google Sheet setup
 
-1. **Create a Google Cloud service account:**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Enable the Google Sheets API
-   - Create a service account with "Viewer" role
-   - Download the JSON key file
+The Google Sheet must be shared as **"Anyone with the link can view"** for the CSV export to work without authentication.
 
-2. **Share the Google Sheet:**
-   - Open https://docs.google.com/spreadsheets/d/120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04/edit
-   - Share with the service account email (from JSON key)
-   - Grant "Viewer" access
+1. Open the Google Sheet
+2. Click "Share" button
+3. Under "General access", select "Anyone with the link"
+4. Set role to "Viewer"
 
-3. **Add secrets to GitHub:**
-   - Go to repo → Settings → Secrets and variables → Actions
-   - Add `GOOGLE_SERVICE_ACCOUNT_KEY`: Base64-encoded JSON key
-     ```bash
-     base64 -i service-account.json | pbcopy
-     ```
-   - Add `GOOGLE_SHEET_ID`: `120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04`
+No GitHub secrets are required for public sheets.
 
 ---
 
@@ -414,8 +329,7 @@ main().catch((err) => {
 The webapp fetches the cached JSON from GitHub raw URL:
 
 ```typescript
-// src/lib/data/use-report-data.ts
-const DATA_URL = 'https://raw.githubusercontent.com/your-org/quarterly-report-data/main/public/report-data.json';
+const DATA_URL = 'https://raw.githubusercontent.com/dealroom-caching/ny-state-landing-page-data/main/public/report-data.json';
 
 export async function fetchReportData() {
   const response = await fetch(DATA_URL);
@@ -425,20 +339,16 @@ export async function fetchReportData() {
 
 ### Local development
 
-Use the mock data already in `/public/data/report-data.json` in the webapp repo for development.
+Run `npm run build` to generate fresh data locally.
 
 ---
 
 ## Summary
 
-**What changed from v1.0:**
-- ❌ Removed complex transformations (quarter parsing, stage aggregations, projections)
-- ❌ Removed pre-computed comparison lists
-- ❌ Removed region key normalization
-- ❌ Removed separate config file
-- ✅ Single simple cache file
-- ✅ ~70 line build script (was 500+)
-- ✅ All business logic moved to webapp where it belongs
+**The pipeline is a "dumb cache" — fetch sheets, store JSON, done.**
 
-**The pipeline is now truly a "dumb cache" — fetch sheets, store JSON, done.**
+- ✅ No authentication required (public sheet via CSV export)
+- ✅ Simple fetch & cache script
+- ✅ All business logic handled by consuming application
+- ✅ ~200 line build script with robust CSV parsing
 

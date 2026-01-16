@@ -1,6 +1,6 @@
-# Quarterly Report Data Cache
+# NY State Data Cache
 
-This repository contains the data caching pipeline for the Quarterly Ecosystem Reporter.
+This repository contains the data caching pipeline for NY state data.
 
 ## Overview
 
@@ -19,8 +19,7 @@ The pipeline fetches raw data from **public** Google Sheets and stores it as a s
    npm install
    ```
 
-2. Set up environment variables:
-   - `GOOGLE_SHEET_ID`: The ID of the source Google Sheet. (Must be shared as "Anyone with the link can view")
+2. The Google Sheet ID is hardcoded in the build script.
 
 3. Run the build script locally:
    ```bash
@@ -29,12 +28,42 @@ The pipeline fetches raw data from **public** Google Sheets and stores it as a s
 
 ## Data Source
 
-- **Google Sheet ID:** `120IXe10QWLsOjMwK1beu2pY-jlSLQjaO-kfc10q9J04`
+- **Google Sheet URL:** https://docs.google.com/spreadsheets/d/1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw/edit
+- **Google Sheet ID:** `1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw`
 - **Sheets fetched:**
-  - Locations Metadata
-  - Yearly Funding Data
-  - Quarterly Funding Data
-  - Yearly Enterprise Value
-  - Top Industries and Tags
-  - Top Rounds
-  - Regional Comparison
+  | Key | Sheet Name | GID |
+  |-----|------------|-----|
+  | `output` | output | 0 |
+  | `ebitda_timeseries` | EBITDA Timeseries | 845629928 |
+  | `revenue_timeseries` | Revenue Timeseries | 755104021 |
+  | `employee_timeseries` | Employee timeseries | 12460386 |
+  | `ev_timeseries` | EV timeseries | 790875073 |
+  | `mafia` | Mafia | 1431246161 |
+  | `founders` | founders | 275207722 |
+
+## Output JSON Structure
+
+```json
+{
+  "meta": {
+    "generated_at": "2026-01-16T...",
+    "source_sheet_id": "1LtLWrFwADBtmm5CkA1NeYr1G4mJgVdFWT6a9eq1TCQw",
+    "reporting_quarter": "2026Q1",
+    "reporting_year": 2026,
+    "reporting_quarter_number": 1,
+    "schema_version": "2.0"
+  },
+  "sheets": {
+    "output": [...],
+    "ebitda_timeseries": [...],
+    "revenue_timeseries": [...],
+    "employee_timeseries": [...],
+    "ev_timeseries": [...],
+    "mafia": [...],
+    "founders": [...]
+  },
+  "config": {
+    "schema_version": "1.0"
+  }
+}
+```
